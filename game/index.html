@@ -3,16 +3,103 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Solmar Bay — an open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d141b; font-family: 'Segoe UI', Arial, sans-serif; }
+  #app, #app canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #stats { position: absolute; left: 18px; bottom: 18px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  #health-wrap { width: 210px; height: 15px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 3px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #57d977; transition: width .18s; }
+  #health-line { margin-top: 4px; font-size: 12px; letter-spacing: .12em; opacity: .9; }
+  #cash { font-size: 27px; font-weight: 800; color: #7be495; margin-top: 2px; }
+  #topright { position: absolute; right: 16px; top: 14px; text-align: center; }
+  #minimap { width: 192px; height: 192px; border: 2px solid rgba(255,255,255,.55); border-radius: 6px; background: #20262e; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #stars { font-size: 25px; color: #ffd54f; letter-spacing: 3px; height: 30px; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #wanted-label { font-size: 11px; letter-spacing: .3em; color: #ff8a75; font-weight: 700; height: 14px; }
+  #objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 560px; text-align: center; color: #fff; background: rgba(8, 16, 24, .55); border: 1px solid rgba(255,213,79,.45); border-radius: 6px; padding: 7px 18px 8px; text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+  #objective-title { font-size: 12px; letter-spacing: .22em; color: #ffd54f; font-weight: 700; text-transform: uppercase; }
+  #objective-text { font-size: 16.5px; font-weight: 600; margin-top: 1px; }
+  #objective-dist { font-size: 12.5px; color: #bfe3ff; }
+  #toast { position: absolute; left: 50%; bottom: 24%; transform: translateX(-50%); max-width: 640px; text-align: center; color: #fff; font-size: 18px; font-weight: 600; background: rgba(8,16,24,.72); border-radius: 6px; padding: 10px 22px; opacity: 0; transition: opacity .35s; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+  #prompt { position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%); color: #ffe9a8; font-size: 16.5px; font-weight: 700; letter-spacing: .04em; opacity: 0; transition: opacity .2s; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  #speed { position: absolute; right: 22px; bottom: 20px; color: #fff; font-size: 26px; font-weight: 800; opacity: 0; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 0 4px rgba(0,0,0,.9); }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0; transition: opacity .3s; background: radial-gradient(ellipse at center, transparent 52%, rgba(200,20,10,.55) 100%); }
+
+  /* ---------- screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: #fff; }
+  #title-screen { background: linear-gradient(180deg, rgba(6,20,32,.25) 0%, rgba(6,20,32,.62) 78%); }
+  #title-screen h1 { font-size: 74px; margin: 0; letter-spacing: .06em; font-weight: 900; color: #fff; text-shadow: 0 4px 0 #e07b2a, 0 8px 26px rgba(0,0,0,.65); }
+  #title-screen h2 { margin: 2px 0 10px; font-size: 19px; font-weight: 600; letter-spacing: .34em; color: #ffd54f; text-transform: uppercase; }
+  #title-screen .story { max-width: 620px; font-size: 16.5px; line-height: 1.5; color: #eaf4fb; text-shadow: 0 1px 3px rgba(0,0,0,.9); padding: 0 16px; }
+  #title-screen .controls { margin-top: 12px; font-size: 13.5px; line-height: 1.65; color: #cfe2ee; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+  .btn { pointer-events: auto; cursor: pointer; margin-top: 16px; background: #ffb340; color: #231303; border: none; border-radius: 6px; font-size: 19px; font-weight: 800; letter-spacing: .05em; padding: 12px 42px; box-shadow: 0 3px 0 #b96f14, 0 6px 18px rgba(0,0,0,.5); }
+  .btn:hover { background: #ffc266; }
+  .btn.secondary { background: #33566e; color: #eaf4fb; box-shadow: 0 3px 0 #1d3547, 0 6px 18px rgba(0,0,0,.5); }
+  #pause-screen, #end-screen { background: rgba(5, 12, 19, .72); }
+  #pause-screen h1, #end-screen h1 { font-size: 52px; margin: 0 0 8px; letter-spacing: .08em; text-shadow: 0 3px 14px rgba(0,0,0,.8); }
+  #end-text { max-width: 560px; font-size: 16.5px; line-height: 1.55; color: #e8f1f7; padding: 0 16px; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<div id="app"></div>
+
+<div id="hud" class="hidden">
+  <div id="objective">
+    <div id="objective-title"></div>
+    <div id="objective-text"></div>
+    <div id="objective-dist"></div>
+  </div>
+  <div id="topright">
+    <canvas id="minimap" width="192" height="192"></canvas>
+    <div id="stars"></div>
+    <div id="wanted-label"></div>
+  </div>
+  <div id="stats">
+    <div id="health-wrap"><div id="health-fill"></div></div>
+    <div id="health-line">HEALTH <span id="health-text">100</span></div>
+    <div id="cash">$250</div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="toast"></div>
+  <div id="prompt"></div>
+  <div id="speed"></div>
+</div>
+<div id="vignette"></div>
+
+<div id="title-screen" class="screen">
+  <h1>SOLMAR BAY</h1>
+  <h2>One driver. One city. No brakes.</h2>
+  <p class="story">Marina “Mars” Solano rolled into Solmar Bay with $250, a borrowed name and the fastest hands on the coast.
+  Fixer Tomas Rey has five jobs that will make her a legend — or a headline. Steal the cars, run the checkpoints,
+  clear Pier 9, and bring the armoured van home while the whole Solmar PD tries to stop her.</p>
+  <button id="btn-start" class="btn">NEW GAME</button>
+  <button id="btn-continue" class="btn secondary" style="display:none">CONTINUE</button>
+  <p class="controls">WASD — move / drive &nbsp;•&nbsp; Mouse — look &nbsp;•&nbsp; Click — shoot &nbsp;•&nbsp; E — enter / exit car<br>
+  Shift — sprint &nbsp;•&nbsp; Space — handbrake &nbsp;•&nbsp; P — pause &nbsp;•&nbsp; Progress saves automatically</p>
+</div>
+
+<div id="pause-screen" class="screen" style="display:none">
+  <h1>PAUSED</h1>
+  <p class="controls" style="color:#e8f1f7">The bay waits for no one — except you, right now.</p>
+  <button id="btn-resume" class="btn">RESUME</button>
+  <button id="btn-restart" class="btn secondary">RESTART STORY</button>
+</div>
+
+<div id="end-screen" class="screen" style="display:none">
+  <h1 id="end-title">BUSTED</h1>
+  <p id="end-text"></p>
+  <button id="btn-again" class="btn">BACK TO THE STREETS</button>
+</div>
+
 <p id="status" role="status" aria-live="polite"></p>
 <script type="module" src="./src/main.js"></script>
 </body>
