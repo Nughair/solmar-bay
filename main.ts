@@ -12,7 +12,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -39,3 +39,30 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+
+// Receipt and sanity pass over what was just handed in: walk the copied game
+// tree and the screenshots, and fail loudly if the entry came out empty, so a
+// broken copy never reaches the judge looking like a finished game.
+function tally(dir) {
+  let files = 0;
+  let bytes = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const inner = tally(path);
+      files += inner.files;
+      bytes += inner.bytes;
+    } else {
+      files += 1;
+      bytes += statSync(path).size;
+    }
+  }
+  return { files, bytes };
+}
+const gameTally = tally(join(out, 'game'));
+const shotTally = tally(join(out, 'screenshots'));
+const dossierBytes = statSync(join(out, 'dossier.json')).size;
+if (gameTally.files === 0 || shotTally.files === 0 || dossierBytes === 0) {
+  throw new Error(`incomplete entry output: game ${gameTally.files} files, screenshots ${shotTally.files} files, dossier ${dossierBytes} bytes`);
+}
+console.log(`solmar-bay entry: ${gameTally.files} game files (${gameTally.bytes} bytes), ${shotTally.files} screenshots, dossier ${dossierBytes} bytes`);

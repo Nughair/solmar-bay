@@ -3,16 +3,111 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Solmar Bay — an open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1622; font-family: "Segoe UI", system-ui, Arial, sans-serif; }
+  #scene { position: fixed; inset: 0; display: block; }
+  .panel { background: rgba(8, 18, 28, 0.72); border: 1px solid rgba(255, 196, 86, 0.35); border-radius: 8px; color: #f4ecd8; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #hud.on { display: block; }
+  #cashbox { position: absolute; top: 14px; left: 14px; padding: 8px 14px; }
+  #cash { font-size: 24px; font-weight: 800; color: #ffd75e; letter-spacing: 0.5px; }
+  #cashlabel { font-size: 10px; letter-spacing: 2px; color: #b9c7cf; }
+  #missionbox { position: absolute; top: 92px; left: 14px; padding: 9px 13px; max-width: 320px; }
+  #mission-title { font-size: 13px; font-weight: 800; color: #ffb340; letter-spacing: 1px; text-transform: uppercase; }
+  #mission-obj { font-size: 14px; margin-top: 3px; line-height: 1.35; }
+  #mission-timer { font-size: 20px; font-weight: 800; color: #ff6b57; margin-top: 2px; }
+  #wantedbox { position: absolute; top: 14px; right: 14px; padding: 7px 13px; text-align: right; }
+  #stars { font-size: 26px; letter-spacing: 3px; color: #3d4a54; line-height: 1; }
+  #stars .lit { color: #ffd75e; text-shadow: 0 0 9px rgba(255, 190, 40, 0.9); }
+  #wantedlabel { font-size: 10px; letter-spacing: 2px; color: #b9c7cf; margin-top: 3px; }
+  #healthwrap { position: absolute; left: 14px; bottom: 16px; padding: 8px 12px; width: 210px; }
+  #healthlabel { font-size: 10px; letter-spacing: 2px; color: #b9c7cf; }
+  #healthbar { height: 13px; margin-top: 4px; background: #2a1414; border-radius: 4px; overflow: hidden; }
+  #healthfill { height: 100%; width: 100%; background: linear-gradient(90deg, #e8452c, #ff8a3c); transition: width 0.15s; }
+  #vehiclelabel { font-size: 12px; color: #9fd8e8; margin-top: 5px; min-height: 14px; }
+  #minimap { position: absolute; right: 14px; bottom: 16px; width: 192px; height: 192px; border-radius: 10px; border: 2px solid rgba(255, 196, 86, 0.5); background: #10222f; }
+  #speedo { position: absolute; right: 222px; bottom: 22px; padding: 6px 12px; font-size: 22px; font-weight: 800; color: #fff; display: none; }
+  #prompt { position: absolute; left: 50%; bottom: 118px; transform: translateX(-50%); padding: 8px 18px; font-size: 16px; font-weight: 700; color: #ffe9a8; display: none; }
+  #prompt b { color: #ffd75e; border: 1px solid #ffd75e; border-radius: 4px; padding: 0 7px; margin-right: 7px; }
+  #toast { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); padding: 10px 26px; font-size: 21px; font-weight: 800; color: #aef2b0; text-align: center; display: none; }
+  #toast small { display: block; font-size: 13px; color: #f4ecd8; font-weight: 600; }
+  #dialogue { position: absolute; left: 50%; bottom: 210px; transform: translateX(-50%); width: min(620px, 86vw); padding: 12px 18px; display: none; }
+  #dialogue .who { color: #ffb340; font-weight: 800; letter-spacing: 1px; font-size: 12px; }
+  #dialogue .line { font-size: 17px; margin-top: 3px; line-height: 1.4; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); display: none; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,0.9); }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 140px rgba(200, 10, 0, 0); transition: box-shadow 0.2s; }
+
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: #f7efdb; z-index: 5; }
+  .screen.on { display: flex; }
+  #start-screen { background: linear-gradient(180deg, rgba(6, 20, 34, 0.55), rgba(6, 14, 24, 0.88)); }
+  #start-screen h1 { font-size: 74px; margin: 0; letter-spacing: 4px; color: #ffd75e; text-shadow: 0 4px 0 #c25e1e, 0 10px 34px rgba(0,0,0,0.7); font-weight: 900; }
+  #start-screen h2 { font-size: 19px; margin: 6px 0 0; color: #9fd8e8; letter-spacing: 5px; font-weight: 600; }
+  #start-screen .story { max-width: 620px; font-size: 16px; line-height: 1.55; margin: 20px 18px 6px; color: #e8e0ca; }
+  .btn { pointer-events: auto; cursor: pointer; margin-top: 14px; padding: 12px 42px; font-size: 19px; font-weight: 800; letter-spacing: 1px; color: #221806; background: linear-gradient(180deg, #ffd75e, #f5a623); border: none; border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,0.5); }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: rgba(10, 24, 36, 0.8); color: #ffd75e; border: 1px solid #ffd75e; }
+  #controls { margin-top: 24px; font-size: 13.5px; color: #b9c7cf; line-height: 1.9; }
+  #controls b { color: #ffe9a8; }
+  #down-screen { background: rgba(30, 4, 4, 0.72); }
+  #down-screen h1 { font-size: 62px; margin: 0; color: #ff5a3c; letter-spacing: 6px; }
+  #pause-screen { background: rgba(4, 10, 16, 0.7); }
+  #pause-screen h1 { font-size: 44px; margin: 0; color: #ffd75e; letter-spacing: 4px; }
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="scene" aria-label="Solmar Bay: a 3D open-world crime game"></canvas>
+
+<div id="hud">
+  <div id="cashbox" class="panel"><div id="cashlabel">CASH</div><div id="cash">$0</div></div>
+  <div id="missionbox" class="panel"><div id="mission-title"></div><div id="mission-obj"></div><div id="mission-timer"></div></div>
+  <div id="wantedbox" class="panel"><div id="stars"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div><div id="wantedlabel">WANTED</div></div>
+  <div id="healthwrap" class="panel"><div id="healthlabel">HEALTH</div><div id="healthbar"><div id="healthfill"></div></div><div id="vehiclelabel"></div></div>
+  <canvas id="minimap" width="192" height="192"></canvas>
+  <div id="speedo" class="panel">0 km/h</div>
+  <div id="prompt" class="panel"></div>
+  <div id="toast" class="panel"></div>
+  <div id="dialogue" class="panel"><div class="who"></div><div class="line"></div></div>
+  <div id="crosshair"></div>
+</div>
+<div id="vignette"></div>
+
+<div id="start-screen" class="screen on">
+  <h1>SOLMAR BAY</h1>
+  <h2>SUN · SEA · SCORES TO SETTLE</h2>
+  <p class="story">Nilo Ferreira washes up in Solmar Bay with forty dollars and a borrowed phone.
+  Fixer Vera Castellan runs the harbour's quiet errands — the ones nobody puts in writing.
+  Drive her routes, run her harbour, outrun the Baywatch patrol, and turn forty dollars into a legend.</p>
+  <button id="btn-new" class="btn">NEW GAME</button>
+  <button id="btn-continue" class="btn ghost">CONTINUE</button>
+  <div id="controls">
+    <b>W A S D</b> move / drive &nbsp;·&nbsp; <b>Mouse</b> look (click the game to lock) &nbsp;·&nbsp; <b>Shift</b> sprint<br>
+    <b>E</b> enter / exit car or boat &nbsp;·&nbsp; <b>Click</b> or <b>F</b> shoot &nbsp;·&nbsp; <b>Space</b> handbrake &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> mute
+  </div>
+</div>
+
+<div id="pause-screen" class="screen">
+  <h1>PAUSED</h1>
+  <button id="btn-resume" class="btn">RESUME</button>
+  <button id="btn-quit" class="btn ghost">QUIT TO TITLE</button>
+</div>
+
+<div id="down-screen" class="screen">
+  <h1 id="down-title">TAKEN DOWN</h1>
+  <p id="down-text" style="font-size:17px; color:#e8e0ca;"></p>
+  <button id="btn-respawn" class="btn">BACK ON THE STREET</button>
+</div>
+
 <p id="status" role="status" aria-live="polite"></p>
 <script type="module" src="./src/main.js"></script>
 </body>
