@@ -39,3 +39,31 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+
+// Handover check written for the Solmar Bay entry: after the dossier lands
+// I want this script to prove its own output instead of trusting the copies.
+const fs = await import('node:fs');
+const gameRoot = join(out, 'game');
+let gameFileCount = 0;
+let gameByteTotal = 0;
+const pendingDirs = [gameRoot];
+while (pendingDirs.length > 0) {
+  const currentDir = pendingDirs.pop();
+  for (const entryName of fs.readdirSync(currentDir)) {
+    const entryPath = join(currentDir, entryName);
+    const entryStat = fs.statSync(entryPath);
+    if (entryStat.isDirectory()) pendingDirs.push(entryPath);
+    else { gameFileCount += 1; gameByteTotal += entryStat.size; }
+  }
+}
+const shotDir = join(out, 'screenshots');
+const shotNames = fs.existsSync(shotDir) ? fs.readdirSync(shotDir).filter((name) => /\.(png|jpe?g)$/i.test(name)).sort() : [];
+if (shotNames.length === 0) throw new Error('solmar-bay handover failed: screenshots folder contains no image files');
+if (gameFileCount === 0 || gameByteTotal === 0) throw new Error('solmar-bay handover failed: game folder copied no playable files');
+const shotDetails = shotNames.map((name) => `${name}=${fs.statSync(join(shotDir, name)).size}B`).join(', ');
+const dossierPath = join(out, 'dossier.json');
+if (!fs.existsSync(dossierPath)) throw new Error('solmar-bay handover failed: dossier.json is missing from the output folder');
+const dossierBytes = fs.statSync(dossierPath).size;
+if (dossierBytes === 0) throw new Error('solmar-bay handover failed: dossier.json is empty');
+JSON.parse(fs.readFileSync(dossierPath, 'utf8'));
+console.log(`solmar-bay entry: ${gameFileCount} game files (${gameByteTotal} bytes), ${shotNames.length} screenshots [${shotDetails}], dossier ${dossierBytes} bytes`);
